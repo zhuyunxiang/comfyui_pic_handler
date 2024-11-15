@@ -3,6 +3,7 @@ import torch
 from collections.abc import Callable
 import numpy as np
 import numpy.typing as npt
+import math
 
 def to_numpy(image: torch.Tensor) -> npt.NDArray[np.uint8]:
     np_array = np.clip(255.0 * image.cpu().numpy(), 0, 255).astype(np.uint8)
@@ -79,7 +80,7 @@ class CropPic:
 
     def crop_img(self, image, crop_height, isTop):
         # 加载图像
-        img = tensor2pil(image)[0]
+        img = tensor2pil(image)[0].convert("RGBA")
         width, height = img.size
 
         # 确保裁剪高度不超过图像高度
@@ -95,3 +96,141 @@ class CropPic:
 
 
         return (pil2tensor(cropped_img), )  # 返回裁剪后的图像作为张量
+
+# 梯形变换节点
+class TrapezoidalTransform(object):
+    def __init__(self) -> None:
+        pass
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "bottom_half_height_ratio": ("FLOAT", {
+                    "default": 0.5,
+                    "min": 0,
+                    "max": 1,
+                    "step": 0.01,
+                    "display": 'float'
+                }),
+                "top_width_ratio": ("FLOAT", {
+                    "default": 0.5,
+                    "min": 0,
+                    "max": 1,
+                    "step": 0.01,
+                    "display": 'float'
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE", )
+    CATEGORY = "img_process"
+    FUNCTION = "trapezoidal_transform"
+
+    # 将图像转换为梯形
+    def trapezoidal_transform(self, image, bottom_half_height_ratio=0.5, top_width_ratio=0.6):
+        # 加载图像
+        # 加载图像
+        img = tensor2pil(image)[0].convert("RGBA")
+        width, height = img.size
+
+        # 计算下半部分的高度
+        bottom_half_height = int(height * bottom_half_height_ratio)
+        top_half_height = height - bottom_half_height
+
+        # 创建新的图像，初始化为透明
+        new_img = Image.new('RGBA', img.size)
+
+        # 定义梯形的顶部宽度
+        top_width = int(width * top_width_ratio)
+
+        # 处理上半部分（梯形部分）
+        for y in range(top_half_height):
+            # 计算当前行的宽度
+            current_width = int(top_width + (width - top_width) * (y / top_half_height))
+            left = (width - current_width) // 2
+            right = left + current_width
+            
+            # 逐个像素进行插值
+            for x in range(left, right):
+                # 计算原图中对应的像素位置
+                source_x = int((x - left) * (width / current_width))  # 线性映射
+                if 0 <= source_x < width and 0 <= y < height:
+                    new_img.putpixel((x, y), img.getpixel((source_x, y)))
+
+        # 处理下半部分（保持不变）
+        new_img.paste(img.crop((0, top_half_height, width, height)), (0, top_half_height))
+
+        # 保存处理后的图像
+        return (pil2tensor(new_img), )
+
+# 上半部分往右偏移节点
+class SkewImageTopRight(object):
+    def __init__(self) -> None:
+        pass
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "skew_angle": ("INT", {
+                    "default": 0,
+                    "min": 0,
+                    "max": 90,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "bottom_half_height_ratio": ("FLOAT", {
+                    "default": 0.5,
+                    "min": 0,
+                    "max": 1,
+                    "step": 0.01,
+                    "display": 'float'
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE", )
+    CATEGORY = "img_process"
+    FUNCTION = "skew_image_top_right"
+
+    # 上半部分往右偏移
+    def skew_image_top_right(self, image, skew_angle=30, bottom_half_height_ratio=0.5):
+        # 加载图像
+        img = tensor2pil(image)[0].convert("RGBA")
+        width, height = img.size
+
+        # 计算下半部分的高度
+        bottom_half_height = int(height * bottom_half_height_ratio)
+        top_half_height = height - bottom_half_height
+
+        # 将倾斜角度转换为弧度
+        angle_rad = math.radians(skew_angle)
+
+        # 计算新宽度
+        total_offset = int(top_half_height * math.tan(angle_rad))
+        new_width = width + total_offset
+
+        # 创建新的图像，初始化为透明
+        new_img = Image.new('RGBA', (new_width, height))
+
+        # 处理上半部分（平行四边形部分）
+        for y in range(top_half_height):
+            # 计算当前行的偏移量，向右倾斜
+            offset = int((top_half_height - y) * math.tan(angle_rad))
+
+            for x in range(width):
+                # 计算新的x坐标，保持底边不变
+                new_x = x + offset
+                
+                # 确保坐标在有效范围内
+                if 0 <= new_x < new_width and 0 <= y < top_half_height:
+                    new_img.putpixel((new_x, y), img.getpixel((x, y)))
+
+        # 处理下半部分（保持不变）
+        new_img.paste(img.crop((0, top_half_height, width, height)), (0, top_half_height))
+
+        return (pil2tensor(new_img), )  # 返回裁剪后的图像作为张量
+
