@@ -71,6 +71,13 @@ class CropPic:
                     "step": 1,
                     "display": 'number'
                 }),
+                "isRGB": ("INT", {
+                    "default": 1,
+                    "min": 0,
+                    "max": 1,
+                    "step": 1,
+                    "display": 'number'
+                }),
             }
         }
 
@@ -78,7 +85,7 @@ class CropPic:
     CATEGORY = "img_process"
     FUNCTION = "crop_img"
 
-    def crop_img(self, image, crop_height, isTop):
+    def crop_img(self, image, crop_height, isTop, isRGB):
         # 加载图像
         img = tensor2pil(image)[0].convert("RGBA")
         width, height = img.size
@@ -94,6 +101,8 @@ class CropPic:
             # 从底部裁剪
             cropped_img = img.crop((0, 0, width, height - crop_height))
 
+        if isRGB == 1:
+            return (pil2tensor(cropped_img.convert("RGB")), )
 
         return (pil2tensor(cropped_img), )  # 返回裁剪后的图像作为张量
 
@@ -121,6 +130,13 @@ class TrapezoidalTransform(object):
                     "step": 0.01,
                     "display": 'float'
                 }),
+                "isRGB": ("INT", {
+                    "default": 1,
+                    "min": 0,
+                    "max": 1,
+                    "step": 1,
+                    "display": 'number'
+                }),
             }
         }
 
@@ -129,7 +145,7 @@ class TrapezoidalTransform(object):
     FUNCTION = "trapezoidal_transform"
 
     # 将图像转换为梯形
-    def trapezoidal_transform(self, image, bottom_half_height_ratio=0.5, top_width_ratio=0.6):
+    def trapezoidal_transform(self, image, bottom_half_height_ratio=0.5, top_width_ratio=0.6, isRGB=1):
         # 加载图像
         # 加载图像
         img = tensor2pil(image)[0].convert("RGBA")
@@ -162,8 +178,11 @@ class TrapezoidalTransform(object):
         # 处理下半部分（保持不变）
         new_img.paste(img.crop((0, top_half_height, width, height)), (0, top_half_height))
 
+        if isRGB == 1:
+            return (pil2tensor(new_img.convert("RGB")), )
+
         # 保存处理后的图像
-        return (pil2tensor(new_img.convert("RGB")), )
+        return (pil2tensor(new_img), )
 
 # 上半部分往右偏移节点
 class SkewImageTopRight(object):
@@ -189,6 +208,13 @@ class SkewImageTopRight(object):
                     "step": 0.01,
                     "display": 'float'
                 }),
+                "isRGB": ("INT", {
+                    "default": 1,
+                    "min": 0,
+                    "max": 1,
+                    "step": 1,
+                    "display": 'number'
+                }),
             }
         }
 
@@ -197,7 +223,7 @@ class SkewImageTopRight(object):
     FUNCTION = "skew_image_top_right"
 
     # 上半部分往右偏移
-    def skew_image_top_right(self, image, skew_angle=30, bottom_half_height_ratio=0.5):
+    def skew_image_top_right(self, image, skew_angle=30, bottom_half_height_ratio=0.5, isRGB=1):
         # 加载图像
         img = tensor2pil(image)[0].convert("RGBA")
         width, height = img.size
@@ -232,7 +258,11 @@ class SkewImageTopRight(object):
         # 处理下半部分（保持不变）
         new_img.paste(img.crop((0, top_half_height, width, height)), (0, top_half_height))
 
-        return (pil2tensor(new_img.convert("RGB")), )
+        if isRGB == 1:
+            return (pil2tensor(new_img.convert("RGB")), )
+
+        # 保存处理后的图像
+        return (pil2tensor(new_img), )
 
 # 上半部分往左偏移节点
 class SkewImageTopLeft(object):
@@ -258,6 +288,13 @@ class SkewImageTopLeft(object):
                     "step": 0.01,
                     "display": 'float'
                 }),
+                "isRGB": ("INT", {
+                    "default": 1,
+                    "min": 0,
+                    "max": 1,
+                    "step": 1,
+                    "display": 'number'
+                }),
             }
         }
 
@@ -266,7 +303,7 @@ class SkewImageTopLeft(object):
     FUNCTION = "skew_image_top_left"
     
     # 上半部分往左偏移
-    def skew_image_top_left(self, image, skew_angle=30, bottom_half_height_ratio=0.5):
+    def skew_image_top_left(self, image, skew_angle=30, bottom_half_height_ratio=0.5, isRGB=1):
         img = tensor2pil(image)[0].convert("RGBA")
         width, height = img.size
 
@@ -300,5 +337,8 @@ class SkewImageTopLeft(object):
         # 处理下半部分（保持不变）
         new_img.paste(img.crop((0, top_half_height, width, height)), (total_offset, top_half_height))
 
+        if isRGB == 1:
+            return (pil2tensor(new_img.convert("RGB")), )
+
         # 保存处理后的图像
-        return (pil2tensor(new_img.convert("RGB")), )
+        return (pil2tensor(new_img), )
