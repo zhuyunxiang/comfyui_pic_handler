@@ -163,7 +163,7 @@ class TrapezoidalTransform(object):
         new_img.paste(img.crop((0, top_half_height, width, height)), (0, top_half_height))
 
         # 保存处理后的图像
-        return (pil2tensor(new_img), )
+        return (pil2tensor(new_img.convert("RGB")), )
 
 # 上半部分往右偏移节点
 class SkewImageTopRight(object):
@@ -232,7 +232,7 @@ class SkewImageTopRight(object):
         # 处理下半部分（保持不变）
         new_img.paste(img.crop((0, top_half_height, width, height)), (0, top_half_height))
 
-        return (pil2tensor(new_img), )  # 返回裁剪后的图像作为张量
+        return (pil2tensor(new_img.convert("RGB")), )
 
 # 上半部分往左偏移节点
 class SkewImageTopLeft(object):
@@ -301,4 +301,4 @@ class SkewImageTopLeft(object):
         new_img.paste(img.crop((0, top_half_height, width, height)), (total_offset, top_half_height))
 
         # 保存处理后的图像
-        return (pil2tensor(new_img), )  # 返回裁剪后的图像作为张量
+        return (pil2tensor(new_img.convert("RGB")), )
