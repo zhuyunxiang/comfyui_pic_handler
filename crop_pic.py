@@ -343,7 +343,6 @@ class SkewImageTopLeft(object):
         # 保存处理后的图像
         return (pil2tensor(new_img), )
 
-
 # 上半部分往左偏移下半部分也偏移节点
 class SkewImageTopBottomLeft(object):
     def __init__(self) -> None:
@@ -442,7 +441,6 @@ class SkewImageTopBottomLeft(object):
 
         # 保存处理后的图像
         return (pil2tensor(new_img), )
-
 
 # 上半部分往右偏移下半部分也偏移节点
 class SkewImageTopBottomRight(object):
