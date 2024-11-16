@@ -342,3 +342,203 @@ class SkewImageTopLeft(object):
 
         # 保存处理后的图像
         return (pil2tensor(new_img), )
+
+
+# 上半部分往左偏移下半部分也偏移节点
+class SkewImageTopBottomLeft(object):
+    def __init__(self) -> None:
+        pass
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "skew_angle_top": ("INT", {
+                    "default": 30,
+                    "min": 0,
+                    "max": 90,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "skew_angle_bottom": ("INT", {
+                    "default": -15,
+                    "min": -90,
+                    "max": 90,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "bottom_half_height_ratio": ("FLOAT", {
+                    "default": 0.5,
+                    "min": 0,
+                    "max": 1,
+                    "step": 0.01,
+                    "display": 'float'
+                }),
+                "isRGB": ("INT", {
+                    "default": 1,
+                    "min": 0,
+                    "max": 1,
+                    "step": 1,
+                    "display": 'number'
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE", )
+    CATEGORY = "img_process"
+    FUNCTION = "skew_image_top_bottom_left"
+    
+    # 上半部分往左偏移
+    def skew_image_top_bottom_left(self, image, skew_angle_top=30, skew_angle_bottom=-15, bottom_half_height_ratio=0.5, isRGB=1):
+        # 加载图像
+        img = tensor2pil(image)[0].convert("RGBA")
+        width, height = img.size
+
+        # 计算下半部分的高度
+        bottom_half_height = int(height * bottom_half_height_ratio)
+        top_half_height = height - bottom_half_height
+
+        # 将倾斜角度转换为弧度
+        angle_rad_top = math.radians(skew_angle_top)
+        angle_rad_bottom = math.radians(skew_angle_bottom)
+
+        # 计算新宽度
+        total_offset_top = int(top_half_height * math.tan(angle_rad_top))
+        total_offset_bottom = int(bottom_half_height * math.tan(angle_rad_bottom))
+        new_width = width + max(total_offset_top, total_offset_bottom)
+
+        # 创建新的图像，初始化为透明
+        new_img = Image.new('RGBA', (new_width, height))
+
+        # 处理上半部分（平行四边形部分）
+        for y in range(top_half_height):
+            # 计算当前行的偏移量，向左倾斜
+            offset_top = int((top_half_height - y) * math.tan(angle_rad_top))
+
+            for x in range(width):
+                # 计算新的x坐标，保持底边与下半部分重合
+                new_x = x + total_offset_top - offset_top
+                
+                # 确保坐标在有效范围内
+                if 0 <= new_x < new_width and 0 <= y < top_half_height:
+                    new_img.putpixel((new_x, y), img.getpixel((x, y)))
+
+        # 处理下半部分（保持上边不变，整体向右移动以与上半部分对齐）
+        for y in range(bottom_half_height):
+            # 计算当前行的偏移量，向右倾斜
+            offset_bottom = int(y * math.tan(angle_rad_bottom))
+
+            for x in range(width):
+                # 计算新的x坐标，整体向右移动以与上半部分对齐
+                new_x = x + total_offset_top + offset_bottom  # 向右移动
+                
+                # 确保坐标在有效范围内
+                if 0 <= new_x < new_width and top_half_height + y < height:
+                    new_img.putpixel((new_x, top_half_height + y), img.getpixel((x, top_half_height + y)))
+
+        if isRGB == 1:
+            return (pil2tensor(new_img.convert("RGB")), )
+
+        # 保存处理后的图像
+        return (pil2tensor(new_img), )
+
+
+# 上半部分往右偏移下半部分也偏移节点
+class SkewImageTopBottomRight(object):
+    def __init__(self) -> None:
+        pass
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "skew_angle_top": ("INT", {
+                    "default": 30,
+                    "min": 0,
+                    "max": 90,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "skew_angle_bottom": ("INT", {
+                    "default": -15,
+                    "min": -90,
+                    "max": 90,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "bottom_half_height_ratio": ("FLOAT", {
+                    "default": 0.5,
+                    "min": 0,
+                    "max": 1,
+                    "step": 0.01,
+                    "display": 'float'
+                }),
+                "isRGB": ("INT", {
+                    "default": 1,
+                    "min": 0,
+                    "max": 1,
+                    "step": 1,
+                    "display": 'number'
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE", )
+    CATEGORY = "img_process"
+    FUNCTION = "skew_image_top_bottom_right"
+    
+    # 上半部分往右偏移
+    def skew_image_top_bottom_right(self, image, skew_angle_top=30, skew_angle_bottom=-15, bottom_half_height_ratio=0.5, isRGB=1):
+        # 加载图像
+        img = tensor2pil(image)[0].convert("RGBA")
+        width, height = img.size
+
+        # 计算下半部分的高度
+        bottom_half_height = int(height * bottom_half_height_ratio)
+        top_half_height = height - bottom_half_height
+
+        # 将倾斜角度转换为弧度
+        angle_rad_top = math.radians(skew_angle_top)
+        angle_rad_bottom = math.radians(skew_angle_bottom)
+
+        # 计算新宽度
+        total_offset_top = int(top_half_height * math.tan(angle_rad_top))  # 上半部分向右的偏移
+        total_offset_bottom = int(bottom_half_height * math.tan(angle_rad_bottom))  # 下半部分向左的偏移
+        new_width = width + total_offset_top  # 新宽度取决于上半部分的偏移
+
+        # 创建新的图像，初始化为透明
+        new_img = Image.new('RGBA', (new_width, height))
+
+        # 处理上半部分（平行四边形部分）
+        for y in range(top_half_height):
+            # 计算当前行的偏移量，向右倾斜
+            offset_top = int(y * math.tan(angle_rad_top))
+
+            for x in range(width):
+                # 计算新的x坐标，向右偏移
+                new_x = x + total_offset_top - offset_top
+                
+                # 确保坐标在有效范围内
+                if 0 <= new_x < new_width and 0 <= y < top_half_height:
+                    new_img.putpixel((new_x, y), img.getpixel((x, y)))
+
+        # 处理下半部分（向左偏移）
+        for y in range(bottom_half_height):
+            # 计算当前行的偏移量，向左倾斜
+            offset_bottom = int(y * math.tan(angle_rad_bottom))
+
+            for x in range(width):
+                # 计算新的x坐标，向左偏移
+                new_x = x - offset_bottom
+                
+                # 确保坐标在有效范围内
+                if 0 <= new_x < new_width and top_half_height + y < height:
+                    new_img.putpixel((new_x, top_half_height + y), img.getpixel((x, top_half_height + y)))
+
+        if isRGB == 1:
+            return (pil2tensor(new_img.convert("RGB")), )
+
+        # 保存处理后的图像
+        return (pil2tensor(new_img), )
