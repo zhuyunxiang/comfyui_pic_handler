@@ -1,4 +1,5 @@
 from PIL import Image
+from PIL import ImageOps
 import torch
 from collections.abc import Callable
 import numpy as np
@@ -540,3 +541,317 @@ class SkewImageTopBottomRight(object):
 
         # 保存处理后的图像
         return (pil2tensor(new_img), )
+
+# 旋转角度
+class RotateImage(object):
+    def __init__(self) -> None:
+        pass
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "angle": ("INT", {
+                    "default": 30,
+                    "min": -360,
+                    "max": 360,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "isRGB": ("INT", {
+                    "default": 1,
+                    "min": 0,
+                    "max": 1,
+                    "step": 1,
+                    "display": 'number'
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE", )
+    CATEGORY = "img_process"
+    FUNCTION = "rotate_image"
+    
+    # 旋转角度
+    def rotate_image(self, image, angle=30, isRGB=1):
+        # 加载图像
+        img = tensor2pil(image)[0].convert("RGBA")
+        rotated_img = img.rotate(angle, expand=True)
+        if isRGB == 1:
+            return (pil2tensor(rotated_img.convert("RGB")), )
+
+        # 保存处理后的图像
+        return (pil2tensor(rotated_img), )
+
+# resize图像的大小（图像会伸缩）
+class ResizeImage(object):
+    def __init__(self) -> None:
+        pass
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "width": ("INT", {
+                    "default": 100,
+                    "min": -360,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "height": ("INT", {
+                    "default": 100,
+                    "min": -360,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "isRGB": ("INT", {
+                    "default": 1,
+                    "min": 0,
+                    "max": 1,
+                    "step": 1,
+                    "display": 'number'
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE", )
+    CATEGORY = "img_process"
+    FUNCTION = "resize_image"
+    
+    # resize图像的大小（图像会伸缩）
+    def resize_image(self, image, width=1000, height=1000, isRGB=1):
+        # 加载图像
+        img = tensor2pil(image)[0].convert("RGBA")
+        resized_img = img.resize((width, height), 4)
+
+        if isRGB == 1:
+            return (pil2tensor(resized_img.convert("RGB")), )
+
+        # 保存处理后的图像
+        return (pil2tensor(resized_img), )
+
+# resize图像的大小（图像保持纵横比）
+class ResizeWithRatioImage(object):
+    def __init__(self) -> None:
+        pass
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "width": ("INT", {
+                    "default": 100,
+                    "min": -360,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "height": ("INT", {
+                    "default": 100,
+                    "min": -360,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "isRGB": ("INT", {
+                    "default": 1,
+                    "min": 0,
+                    "max": 1,
+                    "step": 1,
+                    "display": 'number'
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE", )
+    CATEGORY = "img_process"
+    FUNCTION = "resize_with_ratio_image"
+    
+    # 上半部分往右偏移
+    def resize_with_ratio_image(self, image, width=1000, height=1000, isRGB=1):
+        # 加载图像
+        img = tensor2pil(image)[0].convert("RGBA")
+        img.thumbnail((width, height), 4)
+
+        if isRGB == 1:
+            return (pil2tensor(img.convert("RGB")), )
+
+        # 保存处理后的图像
+        return (pil2tensor(img), )
+
+# 向四周扩图
+class ExpandImage(object):
+    def __init__(self) -> None:
+        pass
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "left": ("INT", {
+                    "default": 100,
+                    "min": -360,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "top": ("INT", {
+                    "default": 100,
+                    "min": -360,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "right": ("INT", {
+                    "default": 100,
+                    "min": -360,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "bottom": ("INT", {
+                    "default": 100,
+                    "min": -360,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "isRGB": ("INT", {
+                    "default": 1,
+                    "min": 0,
+                    "max": 1,
+                    "step": 1,
+                    "display": 'number'
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE", )
+    CATEGORY = "img_process"
+    FUNCTION = "expand_image"
+    
+    # 上半部分往右偏移
+    def expand_image(self, image, left=1000, top=1000, right=1000, bottom=1000, isRGB=1):
+        # 加载图像
+        img = tensor2pil(image)[0].convert("RGBA")
+        img = ImageOps.expand(img, border=(left, top, right, bottom), fill=(0, 0, 0, 0))
+
+        if isRGB == 1:
+            return (pil2tensor(img.convert("RGB")), )
+
+        # 保存处理后的图像
+        return (pil2tensor(img), )
+
+# 清除图像四周的空白并调整图像大小
+class ClearImageBorder(object):
+    def __init__(self) -> None:
+        pass
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "tolerance": ("INT", {
+                    "default": 100,
+                    "min": 0,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "isRGB": ("INT", {
+                    "default": 1,
+                    "min": 0,
+                    "max": 1,
+                    "step": 1,
+                    "display": 'number'
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE", )
+    CATEGORY = "img_process"
+    FUNCTION = "clear_image_border"
+    
+    # 清除图像四周的空白并调整图像大小
+    def clear_image_border(self, image, tolerance=0, isRGB=1):
+        # 加载图像
+        img = tensor2pil(image)[0].convert("RGBA")
+        # 转换为灰度图像，获取 alpha 通道
+        alpha = img.split()[3]
+        
+        # 计算裁剪的边界
+        bbox = alpha.getbbox()  # 获取非透明区域的边界框
+        
+        if bbox is None:
+            # 如果图像完全透明，返回空白图像
+            result = Image.new("RGBA", img.size, (255, 255, 255, 0))
+        else:
+            # 考虑容差，扩大边界框
+            left = max(0, bbox[0] - tolerance)
+            upper = max(0, bbox[1] - tolerance)
+            right = min(img.width, bbox[2] + tolerance)
+            lower = min(img.height, bbox[3] + tolerance)
+
+            # 使用计算后的边界裁剪图像
+            result = img.crop((left, upper, right, lower))
+
+        if isRGB == 1:
+            return (pil2tensor(result.convert("RGB")), )
+
+        # 保存处理后的图像
+        return (pil2tensor(result), )
+
+# 获取图像内空白区域尺寸
+class GetImageBlankSize:
+    def __init__(self):
+        pass
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "tolerance": ("INT", {
+                    "default": 100,
+                    "min": 0,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("INT", "INT", "INT", "INT",)
+    RETURN_NAMES = ("left", "top", "right", "bottom",)
+    FUNCTION = "get_img_blank_size"
+
+    CATEGORY = "img_process"
+
+    def get_img_blank_size(self, image, tolerance=0):
+        # 加载图像
+        img = tensor2pil(image)[0].convert("RGBA")
+        # 转换为灰度图像，获取 alpha 通道
+        alpha = img.split()[3]
+
+        # 计算裁剪的边界
+        bbox = alpha.getbbox()  # 获取非透明区域的边界框
+
+        if bbox is None:
+            # 如果图像完全透明，返回空白图像
+            return (img.width, img.height, img.width, img.height)
+
+        # 考虑容差，扩大边界框
+        left = max(0, bbox[0] - tolerance)
+        upper = max(0, bbox[1] - tolerance)
+        right = min(img.width, bbox[2] + tolerance)
+        lower = min(img.height, bbox[3] + tolerance)
+
+        # 返回四周空白像素数
+        return (left, upper, img.width - right, img.height - lower)
