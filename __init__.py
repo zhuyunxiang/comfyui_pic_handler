@@ -13,6 +13,8 @@ NODE_CLASS_MAPPINGS = {
   'ZYX图像向四周扩图': ExpandImage,
   'ZYX清除图像四周的空白并调整图像大小': ClearImageBorder,
   'ZYX获取图像四周的空白尺寸': GetImageBlankSize,
+  'ZYX计算非空白图像尺寸': GetImageSizeWithoutBorder,
+  'ZYX根据示例图调整尺寸': AdjustImageSize,
 }
 
 __all__ = ['NODE_CLASS_MAPPINGS']

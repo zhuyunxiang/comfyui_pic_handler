@@ -759,7 +759,7 @@ class ClearImageBorder(object):
             "required": {
                 "image": ("IMAGE",),
                 "tolerance": ("INT", {
-                    "default": 100,
+                    "default": 0,
                     "min": 0,
                     "max": 100000,
                     "step": 1,
@@ -819,7 +819,7 @@ class GetImageBlankSize:
             "required": {
                 "image": ("IMAGE",),
                 "tolerance": ("INT", {
-                    "default": 100,
+                    "default": 0,
                     "min": 0,
                     "max": 100000,
                     "step": 1,
@@ -855,3 +855,140 @@ class GetImageBlankSize:
 
         # 返回四周空白像素数
         return (left, upper, img.width - right, img.height - lower)
+
+# 计算非空白图像尺寸
+class GetImageSizeWithoutBorder:
+    def __init__(self):
+        pass
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "tolerance": ("INT", {
+                    "default": 0,
+                    "min": 0,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("INT", "INT",)
+    RETURN_NAMES = ("width", "height",)
+    FUNCTION = "get_image_size_without_border"
+
+    CATEGORY = "img_process"
+
+    def get_image_size_without_border(self, image, tolerance=0):
+        # 加载图像
+        img = tensor2pil(image)[0].convert("RGBA")
+        # 转换为灰度图像，获取 alpha 通道
+        alpha = img.split()[3]
+
+        # 计算裁剪的边界
+        bbox = alpha.getbbox()  # 获取非透明区域的边界框
+
+        if bbox is None:
+            # 如果图像完全透明，返回空白图像
+            return (0, 0)
+
+        # 考虑容差，扩大边界框
+        left = max(0, bbox[0] - tolerance)
+        upper = max(0, bbox[1] - tolerance)
+        right = min(img.width, bbox[2] + tolerance)
+        lower = min(img.height, bbox[3] + tolerance)
+
+        # 返回四周空白像素数
+        return (right - left, lower - upper)
+
+# 根据示例图像调整图像尺寸
+class AdjustImageSize:
+    def __init__(self):
+        pass
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "demo_image": ("IMAGE",),
+                "tolerance": ("INT", {
+                    "default": 0,
+                    "min": 0,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "isRGB": ("INT", {
+                    "default": 1,
+                    "min": 0,
+                    "max": 1,
+                    "step": 1,
+                    "display": 'number'
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE",)
+    RETURN_NAMES = ("image",)
+    FUNCTION = "adjust_image_size"
+
+    CATEGORY = "img_process"
+
+    def adjust_image_size(self, image, demo_image, tolerance=0, isRGB=1):
+        # 加载图像
+        img = tensor2pil(image)[0].convert("RGBA")
+        demo_img = tensor2pil(demo_image)[0].convert("RGBA")
+
+        # 转换为灰度图像，获取 alpha 通道
+        demo_alpha = demo_img.split()[3]
+
+        # 计算裁剪的边界
+        demo_bbox = demo_alpha.getbbox()  # 获取非透明区域的边界框
+
+        # 考虑容差，扩大边界框
+        left = max(0, demo_bbox[0] - tolerance)
+        upper = max(0, demo_bbox[1] - tolerance)
+        right = min(demo_img.width, demo_bbox[2] + tolerance)
+        lower = min(demo_img.height, demo_bbox[3] + tolerance)
+        demo_inner_with, demo_inner_height = (right - left, lower - upper)
+
+        print(right, left, lower, upper)
+        # 计算非空白图像尺寸
+        print(demo_inner_with, demo_inner_height)
+
+        # 获取图像内空白区域尺寸
+        demo_blank_left, demo_blank_top, demo_blank_right, demo_blank_bottom = GetImageBlankSize.get_img_blank_size(self, demo_image, tolerance)
+        print(demo_blank_left, demo_blank_top, demo_blank_right, demo_blank_bottom)
+        # 清除现有图案的空白区域
+        # 转换为灰度图像，获取 alpha 通道
+        alpha = img.split()[3]
+        
+        # 计算裁剪的边界
+        bbox = alpha.getbbox()  # 获取非透明区域的边界框
+        
+        if bbox is None:
+            # 如果图像完全透明，返回空白图像
+            result = Image.new("RGBA", img.size, (255, 255, 255, 0))
+        else:
+            # 考虑容差，扩大边界框
+            left = max(0, bbox[0] - tolerance)
+            upper = max(0, bbox[1] - tolerance)
+            right = min(img.width, bbox[2] + tolerance)
+            lower = min(img.height, bbox[3] + tolerance)
+
+            # 使用计算后的边界裁剪图像
+            result = img.crop((left, upper, right, lower))
+        # 调整现有图案和示例图案大小一样
+        resized_img = result.resize((demo_inner_with, demo_inner_height), 4)
+        # 调整现有图案的空白区域和示例图案一样
+        resImg = ImageOps.expand(resized_img, border=(demo_blank_left, demo_blank_top, demo_blank_right, demo_blank_bottom), fill=(0, 0, 0, 0))
+
+        if isRGB == 1:
+            return (pil2tensor(resImg.convert("RGB")), )
+
+        # 保存处理后的图像
+        return (pil2tensor(resImg), )
