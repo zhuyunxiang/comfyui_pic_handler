@@ -15,6 +15,7 @@ NODE_CLASS_MAPPINGS = {
   'ZYX获取图像四周的空白尺寸': GetImageBlankSize,
   'ZYX计算非空白图像尺寸': GetImageSizeWithoutBorder,
   'ZYX根据示例图调整尺寸': AdjustImageSize,
+  'ZYX图像局部压缩': SplitCompressTransform,
 }
 
 __all__ = ['NODE_CLASS_MAPPINGS']

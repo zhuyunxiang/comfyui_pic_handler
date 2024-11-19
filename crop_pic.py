@@ -992,3 +992,69 @@ class AdjustImageSize:
 
         # 保存处理后的图像
         return (pil2tensor(resImg), )
+
+# 图像分成两部分，上面一部分进行高度压缩，下面一部分不变
+class SplitCompressTransform(object):
+    def __init__(self) -> None:
+        pass
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "split_ratio": ("FLOAT", {
+                    "default": 0.5,
+                    "min": 0,
+                    "max": 1,
+                    "step": 0.01,
+                    "display": 'float'
+                }),
+                "compress_ratio": ("FLOAT", {
+                    "default": 0.5,
+                    "min": 0,
+                    "max": 1,
+                    "step": 0.01,
+                    "display": 'float'
+                }),
+                "isRGB": ("INT", {
+                    "default": 1,
+                    "min": 0,
+                    "max": 1,
+                    "step": 1,
+                    "display": 'number'
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE", )
+    CATEGORY = "img_process"
+    FUNCTION = "split_and_compress_image"
+
+    # split_and_compress_image
+    def split_and_compress_image(self, image, split_ratio=0.5, compress_ratio=0.5, isRGB=1):
+        # 加载图像
+        img = tensor2pil(image)[0].convert("RGBA")
+        # 加载图像
+        # 计算分割点
+        split_point = int(img.height * split_ratio)
+
+        # 分割图像
+        top_half = img.crop((0, 0, img.width, split_point))
+        bottom_half = img.crop((0, split_point, img.width, img.height))
+
+        # 压缩上面一部分
+        top_half = top_half.resize((top_half.width, int(top_half.height * compress_ratio)), 4)
+
+        # 合并图像时图像大小也要改变
+        new_height = top_half.height + bottom_half.height
+        new_img = Image.new("RGBA", (img.width, new_height))
+
+        new_img.paste(top_half, (0, 0))
+        new_img.paste(bottom_half, (0, top_half.height))
+
+        if isRGB == 1:
+            return (pil2tensor(new_img.convert("RGB")), )
+
+        # 保存处理后的图像
+        return (pil2tensor(new_img), )
