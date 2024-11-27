@@ -50,8 +50,18 @@ def pil2tensor(images: Image.Image | list[Image.Image]) -> torch.Tensor:
 
 # 图片裁剪
 class CropPic:
-    def __init__(self) -> None:
-        pass
+    """
+    图片裁剪类
+
+    输入参数：
+        - image: 输入图像张量 (IMAGE)
+        - crop_height: 裁剪高度（整数，默认值为0，范围从0到10000）
+        - isTop: 是否从顶部裁剪（布尔值，默认为True）
+        - isRGB: 是否返回RGB格式的图像（布尔值，默认为True）
+
+    输出参数：
+        - 裁剪后的图像张量 (IMAGE)
+    """
 
     @classmethod
     def INPUT_TYPES(s):
@@ -65,20 +75,14 @@ class CropPic:
                     "step": 1,
                     "display": 'number'
                 }),
-                "isTop": ("INT", {
-                    "default": 1,
-                    "min": 0,
-                    "max": 1,
-                    "step": 1,
-                    "display": 'number'
+                "isTop": ("BOOLEAN", {
+                    "default": True,
+                    "label": "从顶部裁剪"
                 }),
-                "isRGB": ("INT", {
-                    "default": 1,
-                    "min": 0,
-                    "max": 1,
-                    "step": 1,
-                    "display": 'number'
-                }),
+                "isRGB": ("BOOLEAN", {
+                    "default": True,
+                    "label": "返回RGB格式图像"
+                })
             }
         }
 
@@ -95,17 +99,24 @@ class CropPic:
         if crop_height > height:
             raise ValueError("裁剪高度不能超过图像高度。")
 
-        if isTop == 1:
-            # 从顶部裁剪
-            cropped_img = img.crop((0, crop_height, width, height))
-        else:
-            # 从底部裁剪
-            cropped_img = img.crop((0, 0, width, height - crop_height))
+        # 根据isTop参数确定裁剪位置
+        start_y = 0
+        end_y = height - crop_height
 
-        if isRGB == 1:
+        if not isTop:
+            start_y += crop_height
+            end_y -= crop_height
+
+        # 裁剪图像，使用ANTIALIAS插值方法以避免锯齿和质量下降
+        cropped_img = img.crop((0, start_y, width, end_y)).resize(
+            (width, height - crop_height), resample=4
+        )
+
+        # 返回裁剪后的图像张量
+        if isRGB:
             return (pil2tensor(cropped_img.convert("RGB")), )
-
-        return (pil2tensor(cropped_img), )  # 返回裁剪后的图像作为张量
+        else:
+            return (pil2tensor(cropped_img), )
 
 # 梯形变换节点
 class TrapezoidalTransform(object):
