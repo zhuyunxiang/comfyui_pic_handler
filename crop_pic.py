@@ -502,10 +502,12 @@ class SkewImageTopBottomRight(object):
         angle_rad_top = math.radians(skew_angle_top)
         angle_rad_bottom = math.radians(skew_angle_bottom)
 
-        # 计算新宽度
+        # 计算偏移量
         total_offset_top = int(top_half_height * math.tan(angle_rad_top))  # 上半部分向右的偏移
         total_offset_bottom = int(bottom_half_height * math.tan(angle_rad_bottom))  # 下半部分向左的偏移
-        new_width = width + total_offset_top  # 新宽度取决于上半部分的偏移
+
+        # 计算新宽度以适应下半部分的偏移
+        new_width = width + total_offset_top + max(0, -total_offset_bottom)
 
         # 创建新的图像，初始化为透明
         new_img = Image.new('RGBA', (new_width, height))
@@ -532,12 +534,9 @@ class SkewImageTopBottomRight(object):
                 # 计算新的x坐标，向左偏移
                 new_x = x - offset_bottom
                 
-                # 确保坐标在有效范围内
+                # 确保坐标在有效范围内，动态调整图像宽度
                 if 0 <= new_x < new_width and top_half_height + y < height:
                     new_img.putpixel((new_x, top_half_height + y), img.getpixel((x, top_half_height + y)))
-
-        if isRGB == 1:
-            return (pil2tensor(new_img.convert("RGB")), )
 
         # 保存处理后的图像
         return (pil2tensor(new_img), )
@@ -1057,4 +1056,134 @@ class SplitCompressTransform(object):
             return (pil2tensor(new_img.convert("RGB")), )
 
         # 保存处理后的图像
+        return (pil2tensor(new_img), )
+
+# 图像分成两部分，上面一部分进行高度压缩，下面一部分不变，去锯齿
+class SplitCompressTransformNo(object):
+    def __init__(self) -> None:
+        pass
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "split_ratio": ("FLOAT", {
+                    "default": 0.5,
+                    "min": 0,
+                    "max": 1,
+                    "step": 0.01,
+                    "display": 'float'
+                }),
+                "compress_ratio": ("FLOAT", {
+                    "default": 0.5,
+                    "min": 0,
+                    "max": 1,
+                    "step": 0.01,
+                    "display": 'float'
+                }),
+                "isRGB": ("INT", {
+                    "default": 1,
+                    "min": 0,
+                    "max": 1,
+                    "step": 1,
+                    "display": 'number'
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE", )
+    CATEGORY = "img_process"
+    FUNCTION = "split_and_compress_image_no"
+
+    def split_and_compress_image_no(self, image, split_ratio=0.5, compress_ratio=0.5, isRGB=1):
+        # 加载图像
+        img = tensor2pil(image)[0].convert("RGBA")
+        
+        # 计算分割点
+        split_point = int(img.height * split_ratio)
+
+        # 分割图像
+        top_half = img.crop((0, 0, img.width, split_point))
+        bottom_half = img.crop((0, split_point, img.width, img.height))
+
+        # 压缩上面一部分，使用LANCZOS插值减少锯齿
+        top_half = top_half.resize((top_half.width, int(top_half.height * compress_ratio)), Image.LANCZOS)
+
+        # 合并图像
+        new_height = top_half.height + bottom_half.height
+        new_img = Image.new("RGBA", (img.width, new_height))
+
+        new_img.paste(top_half, (0, 0))
+        new_img.paste(bottom_half, (0, top_half.height))
+
+        if isRGB == 1:
+            return (pil2tensor(new_img.convert("RGB")), )
+
+        return (pil2tensor(new_img), )
+
+# 调整图像到指定尺寸（四周填充空白），默认图像在左上角，可设置offset
+class ResizeImageOffset:
+    def __init__(self):
+        pass
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "width": ("INT", {
+                    "default": 512,
+                    "min": 0,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "height": ("INT", {
+                    "default": 512,
+                    "min": 0,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "offset_x": ("INT", {
+                    "default": 0,
+                    "min": 0,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "offset_y": ("INT", {
+                    "default": 0,
+                    "min": 0,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE",)
+    RETURN_NAMES = ("image",)
+    FUNCTION = "resize_image_offset"
+
+    CATEGORY = "img_process"
+
+    def resize_image_offset(self, image, width, height, offset_x, offset_y):
+        # 加载图像
+        img = tensor2pil(image)[0].convert("RGBA")
+
+        # 计算新图像尺寸
+        new_width = width
+        new_height = height
+
+        # 创建新图像并填充背景
+        new_img = Image.new("RGBA", (new_width, new_height), (255, 255, 255, 0))
+
+        # 计算偏移量
+        offset_x = offset_x
+        offset_y = offset_y
+
+        # 将原图像粘贴到新图像上
+        new_img.paste(img, (offset_x, offset_y))
         return (pil2tensor(new_img), )
