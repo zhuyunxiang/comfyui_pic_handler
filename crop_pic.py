@@ -399,11 +399,12 @@ class SkewImageTopBottomLeft(object):
     RETURN_TYPES = ("IMAGE", )
     CATEGORY = "img_process"
     FUNCTION = "skew_image_top_bottom_left"
-    
-    # 上半部分往左偏移
+
     def skew_image_top_bottom_left(self, image, skew_angle_top=30, skew_angle_bottom=-15, bottom_half_height_ratio=0.5, isRGB=1):
         # 加载图像
         img = tensor2pil(image)[0].convert("RGBA")
+        
+        # 获取原始宽度和高度
         width, height = img.size
 
         # 计算下半部分的高度
@@ -426,7 +427,7 @@ class SkewImageTopBottomLeft(object):
         for y in range(top_half_height):
             # 计算当前行的偏移量，向左倾斜
             offset_top = int((top_half_height - y) * math.tan(angle_rad_top))
-
+            
             for x in range(width):
                 # 计算新的x坐标，保持底边与下半部分重合
                 new_x = x + total_offset_top - offset_top
@@ -439,7 +440,7 @@ class SkewImageTopBottomLeft(object):
         for y in range(bottom_half_height):
             # 计算当前行的偏移量，向右倾斜
             offset_bottom = int(y * math.tan(angle_rad_bottom))
-
+            
             for x in range(width):
                 # 计算新的x坐标，整体向右移动以与上半部分对齐
                 new_x = x + total_offset_top + offset_bottom  # 向右移动
@@ -448,11 +449,14 @@ class SkewImageTopBottomLeft(object):
                 if 0 <= new_x < new_width and top_half_height + y < height:
                     new_img.putpixel((new_x, top_half_height + y), img.getpixel((x, top_half_height + y)))
 
-        if isRGB == 1:
-            return (pil2tensor(new_img.convert("RGB")), )
+        # 对处理后的图像进行平滑处理，减少锯齿效果
+        new_img = new_img.filter(ImageFilter.SMOOTH)
 
-        # 保存处理后的图像
-        return (pil2tensor(new_img), )
+        if isRGB == 1:
+            return (pil2tensor(new_img.convert("RGB")),)
+        
+        return (pil2tensor(new_img),)
+
 
 # 上半部分往右偏移下半部分也偏移节点
 class SkewImageTopBottomRight(object):
@@ -582,15 +586,18 @@ class RotateImage(object):
     RETURN_TYPES = ("IMAGE", )
     CATEGORY = "img_process"
     FUNCTION = "rotate_image"
-    
+
     # 旋转角度
     def rotate_image(self, image, angle=30, isRGB=1):
         # 加载图像
         img = tensor2pil(image)[0].convert("RGBA")
-        rotated_img = img.rotate(angle, expand=True)
+        
+        # 使用抗锯齿算法进行旋转，使用 Image.Resampling.LANCZOS 替代 Image.ANTIALIAS
+        rotated_img = img.rotate(angle, expand=True, resample=Image.Resampling.BILINEAR)
+        
         if isRGB == 1:
             return (pil2tensor(rotated_img.convert("RGB")), )
-
+        
         # 保存处理后的图像
         return (pil2tensor(rotated_img), )
 
