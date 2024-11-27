@@ -136,7 +136,7 @@ class TrapezoidalTransform(object):
                     "display": 'float'
                 }),
                 "top_width_ratio": ("FLOAT", {
-                    "default": 0.5,
+                    "default": 0.6,
                     "min": 0,
                     "max": 1,
                     "step": 0.01,
@@ -158,8 +158,7 @@ class TrapezoidalTransform(object):
 
     # 将图像转换为梯形
     def trapezoidal_transform(self, image, bottom_half_height_ratio=0.5, top_width_ratio=0.6, isRGB=1):
-        # 加载图像
-        # 加载图像
+         # 加载图像
         img = tensor2pil(image)[0].convert("RGBA")
         width, height = img.size
 
@@ -178,11 +177,9 @@ class TrapezoidalTransform(object):
             # 计算当前行的宽度
             current_width = int(top_width + (width - top_width) * (y / top_half_height))
             left = (width - current_width) // 2
-            right = left + current_width
-            
-            # 逐个像素进行插值
-            for x in range(left, right):
-                # 计算原图中对应的像素位置
+
+            # 使用ANTIALIAS插值方法处理梯形部分
+            for x in range(left, left + current_width):
                 source_x = int((x - left) * (width / current_width))  # 线性映射
                 if 0 <= source_x < width and 0 <= y < height:
                     new_img.putpixel((x, y), img.getpixel((source_x, y)))
