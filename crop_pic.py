@@ -1,5 +1,4 @@
-from PIL import Image
-from PIL import ImageOps
+from PIL import Image, ImageOps, ImageFilter, ImageDraw
 import torch
 from collections.abc import Callable
 import numpy as np
@@ -267,11 +266,13 @@ class SkewImageTopRight(object):
         # 处理下半部分（保持不变）
         new_img.paste(img.crop((0, top_half_height, width, height)), (0, top_half_height))
 
+        # 使用抗锯齿方法平滑边缘
         if isRGB == 1:
-            return (pil2tensor(new_img.convert("RGB")), )
+            new_img = new_img.convert("RGB")
+        
+        new_img = ImageOps.autocontrast(new_img)  # 自动对比度增强
 
-        # 保存处理后的图像
-        return (pil2tensor(new_img), )
+        return (pil2tensor(new_img.filter(ImageFilter.SMOOTH)), )
 
 # 上半部分往左偏移节点
 class SkewImageTopLeft(object):
@@ -310,8 +311,7 @@ class SkewImageTopLeft(object):
     RETURN_TYPES = ("IMAGE", )
     CATEGORY = "img_process"
     FUNCTION = "skew_image_top_left"
-    
-    # 上半部分往左偏移
+
     def skew_image_top_left(self, image, skew_angle=30, bottom_half_height_ratio=0.5, isRGB=1):
         img = tensor2pil(image)[0].convert("RGBA")
         width, height = img.size
@@ -331,20 +331,23 @@ class SkewImageTopLeft(object):
         new_img = Image.new('RGBA', (new_width, height))
 
         # 处理上半部分（平行四边形部分）
+        draw = ImageDraw.Draw(new_img)
+        
         for y in range(top_half_height):
-            # 计算当前行的偏移量，向左倾斜
             offset = int((top_half_height - y) * math.tan(angle_rad))
-
+            
             for x in range(width):
-                # 计算新的x坐标，保持底边与下半部分重合，同时整体向右移动
                 new_x = x + total_offset - offset
                 
-                # 确保坐标在有效范围内
                 if 0 <= new_x < new_width and 0 <= y < top_half_height:
-                    new_img.putpixel((new_x, y), img.getpixel((x, y)))
+                    color = img.getpixel((x, y))
+                    draw.point((new_x, y), fill=color)
 
         # 处理下半部分（保持不变）
         new_img.paste(img.crop((0, top_half_height, width, height)), (total_offset, top_half_height))
+
+        # 抗锯齿处理
+        new_img = new_img.filter(ImageFilter.SMOOTH_MORE)
 
         if isRGB == 1:
             return (pil2tensor(new_img.convert("RGB")), )
