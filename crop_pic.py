@@ -1099,7 +1099,7 @@ class SplitCompressTransformNo(object):
     def split_and_compress_image_no(self, image, split_ratio=0.5, compress_ratio=0.5, isRGB=1):
         # 加载图像
         img = tensor2pil(image)[0].convert("RGBA")
-        
+
         # 计算分割点
         split_point = int(img.height * split_ratio)
 
@@ -1107,18 +1107,15 @@ class SplitCompressTransformNo(object):
         top_half = img.crop((0, 0, img.width, split_point))
         bottom_half = img.crop((0, split_point, img.width, img.height))
 
-        # 压缩上面一部分，使用LANCZOS插值减少锯齿
+        # 压缩上面一部分，使用高质量插值
         top_half = top_half.resize((top_half.width, int(top_half.height * compress_ratio)), Image.LANCZOS)
 
-        # 合并图像
+        # 合并图像时图像大小也要改变
         new_height = top_half.height + bottom_half.height
         new_img = Image.new("RGBA", (img.width, new_height))
 
         new_img.paste(top_half, (0, 0))
         new_img.paste(bottom_half, (0, top_half.height))
-
-        if isRGB == 1:
-            return (pil2tensor(new_img.convert("RGB")), )
 
         return (pil2tensor(new_img), )
 
@@ -1170,20 +1167,27 @@ class ResizeImageOffset:
     CATEGORY = "img_process"
 
     def resize_image_offset(self, image, width, height, offset_x, offset_y):
-        # 加载图像
         img = tensor2pil(image)[0].convert("RGBA")
+        img_width, img_height = img.size
 
-        # 计算新图像尺寸
         new_width = width
         new_height = height
 
-        # 创建新图像并填充背景
+        # Check for out-of-bounds conditions
+        if offset_x < 0 or offset_y < 0 or offset_x + img_width > new_width or offset_y + img_height > new_height:
+            # Handle out-of-bounds: Crop the image to fit within the new dimensions.
+            x1 = max(0, -offset_x)
+            y1 = max(0, -offset_y)
+            x2 = min(img_width, new_width - offset_x)
+            y2 = min(img_height, new_height - offset_y)
+            img = img.crop((x1, y1, x2, y2))
+            # Recalculate dimensions after cropping
+            img_width, img_height = img.size
+
+        # Create new image and fill with background
         new_img = Image.new("RGBA", (new_width, new_height), (255, 255, 255, 0))
 
-        # 计算偏移量
-        offset_x = offset_x
-        offset_y = offset_y
+        # Paste the image, handling potential negative offsets (already handled by cropping).
+        new_img.paste(img, (max(0, offset_x), max(0, offset_y)))  # Ensure positive offsets
 
-        # 将原图像粘贴到新图像上
-        new_img.paste(img, (offset_x, offset_y))
-        return (pil2tensor(new_img), )
+        return (pil2tensor(new_img),)
