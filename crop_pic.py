@@ -4,6 +4,32 @@ from collections.abc import Callable
 import numpy as np
 import numpy.typing as npt
 import math
+import cv2
+
+def pil_to_cv2(pil_img):
+    # 将 PIL 图像转换为 NumPy 数组
+    open_cv_img = np.array(pil_img)
+
+    # 检查是否有 alpha 通道
+    if open_cv_img.shape[2] == 4:  # RGBA 图像
+        # 转换为 BGRA
+        open_cv_img = cv2.cvtColor(open_cv_img, cv2.COLOR_RGBA2BGRA)
+    else:
+        # RGB 转换为 BGR
+        open_cv_img = cv2.cvtColor(open_cv_img, cv2.COLOR_RGB2BGR)
+
+    return open_cv_img
+
+def cv2_to_pil(cv2_img):
+    # 检查是否有 alpha 通道
+    if cv2_img.shape[2] == 4:  # BGRA 图像
+        # 转换为 RGBA
+        pil_img = Image.fromarray(cv2.cvtColor(cv2_img, cv2.COLOR_BGRA2RGBA))
+    else:
+        # BGR 转换为 RGB
+        pil_img = Image.fromarray(cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB))
+
+    return pil_img
 
 def to_numpy(image: torch.Tensor) -> npt.NDArray[np.uint8]:
     np_array = np.clip(255.0 * image.cpu().numpy(), 0, 255).astype(np.uint8)
@@ -146,40 +172,77 @@ class TrapezoidalTransform(object):
 
     # 将图像转换为梯形
     def trapezoidal_transform(self, image, bottom_half_height_ratio=0.5, top_width_ratio=0.6, isRGB=1):
-         # 加载图像
-        img = tensor2pil(image)[0].convert("RGBA")
-        width, height = img.size
+        # 将图像转换为 RGBA 格式
+        pil_img = tensor2pil(image)[0].convert("RGBA")
+        img = pil_to_cv2(pil_img)
 
-        # 计算下半部分的高度
-        bottom_half_height = int(height * bottom_half_height_ratio)
-        top_half_height = height - bottom_half_height
+        original_height, original_width = img.shape[:2]
+        print(f"Original Image Size: Width={original_width}, Height={original_height}")
 
-        # 创建新的图像，初始化为透明
-        new_img = Image.new('RGBA', img.size)
+        # Calculate top height and target width
+        bottom_half_height = int(original_height * bottom_half_height_ratio)
+        top_height = original_height - bottom_half_height
+        target_width = int(original_width * top_width_ratio)
+        print(f"Bottom Half Height: {bottom_half_height}, Top Height: {top_height}, Target Width for Top: {target_width}")
 
-        # 定义梯形的顶部宽度
-        top_width = int(width * top_width_ratio)
+        # Define source and target points
+        src_points = np.float32([
+            [0, 0],                 # Top-left
+            [original_width, 0],    # Top-right
+            [0, top_height],         # Bottom-left
+            [original_width, top_height] # Bottom-right
+        ])
 
-        # 处理上半部分（梯形部分）
-        for y in range(top_half_height):
-            # 计算当前行的宽度
-            current_width = int(top_width + (width - top_width) * (y / top_half_height))
-            left = (width - current_width) // 2
+        # Set target points, top narrowed
+        target_points = np.float32([
+            [original_width // 2 - target_width // 2, 0],  # New top-left
+            [original_width // 2 + target_width // 2, 0],  # New top-right
+            [0, top_height],                             # Bottom-left
+            [original_width, top_height]                    # Bottom-right
+        ])
 
-            # 使用ANTIALIAS插值方法处理梯形部分
-            for x in range(left, left + current_width):
-                source_x = int((x - left) * (width / current_width))  # 线性映射
-                if 0 <= source_x < width and 0 <= y < height:
-                    new_img.putpixel((x, y), img.getpixel((source_x, y)))
+        print("Source Points:", src_points)
+        print("Target Points:", target_points)
 
-        # 处理下半部分（保持不变）
-        new_img.paste(img.crop((0, top_half_height, width, height)), (0, top_half_height))
+        # Calculate perspective transform matrix
+        matrix = cv2.getPerspectiveTransform(src_points, target_points)
 
-        if isRGB == 1:
-            return (pil2tensor(new_img.convert("RGB")), )
+        # Apply perspective transform
+        new_img = cv2.warpPerspective(img, matrix, (original_width, original_height))
 
-        # 保存处理后的图像
-        return (pil2tensor(new_img), )
+        # Create image with transparent background, initialized as fully transparent
+        transparent_background = np.zeros((original_height, original_width, 4), dtype=np.uint8)
+
+        # Handle the bottom half of the original image
+        if img.shape[2] == 4:  # RGBA image
+            transparent_background[top_height:, :] = img[top_height:, :]  # Copy RGBA part
+        else:  # RGB image
+            bottom_half_rgba = np.concatenate((
+                img[top_height:, :],
+                np.full((img[top_height:].shape[0], img[top_height:].shape[1], 1), 255, dtype=np.uint8)  # Add alpha channel
+            ), axis=2)
+            transparent_background[top_height:, :] = bottom_half_rgba
+
+        # Copy the transformed top half to the transparent background
+        if new_img.shape[2] == 4:  # Transformed image is RGBA
+            transparent_background[:top_height, :] = new_img[:top_height, :]
+        else:  # Transformed image is RGB
+            top_half_rgba = np.concatenate((
+                new_img[:top_height, :],
+                np.full((new_img[:top_height].shape[0], new_img[:top_height].shape[1], 1), 255, dtype=np.uint8)  # Add alpha channel
+            ), axis=2)
+            transparent_background[:top_height, :] = top_half_rgba
+
+        # Set the areas not covered by the image to transparent
+        transparent_background[:, :, 3] = np.where(transparent_background[:, :, :3].sum(axis=2) > 0, 255, 0)
+
+        # Check if output image is valid
+        if transparent_background is None or transparent_background.size == 0 or np.count_nonzero(transparent_background) == 0:
+            print("Error: The transformed image is empty or not valid.")
+            return
+
+        # Save the processed image
+        return (pil2tensor(cv2_to_pil(transparent_background)), )
 
 # 上半部分往右偏移节点
 class SkewImageTopRight(object):
