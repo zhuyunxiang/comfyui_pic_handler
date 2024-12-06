@@ -8,6 +8,7 @@ NODE_CLASS_MAPPINGS = {
   'ZYX图像上方和下方指定高度左转': SkewImageTopBottomLeft,
   'ZYX图像上方和下方指定高度左转（带调整高度）': SkewImageLeft,
   'ZYX图像上方和下方指定高度右转': SkewImageTopBottomRight,
+  'ZYX图像上方和下方指定高度右转（带调整高度）': SkewImageRight,
   'ZYX图像旋转角度（带扩图）': RotateImage,
   'ZYX图像resize（图像会伸缩）': ResizeImage,
   'ZYX图像resize（图像保持纵横比）': ResizeWithRatioImage,
