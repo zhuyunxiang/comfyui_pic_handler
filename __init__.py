@@ -19,7 +19,9 @@ NODE_CLASS_MAPPINGS = {
   'ZYX根据示例图调整尺寸': AdjustImageSize,
   'ZYX图像局部压缩': SplitCompressTransform,
   'ZYX图像局部压缩(去锯齿)': SplitCompressTransformNo,
+  'ZYX图像局部压缩(上下都压缩)': SplitCompressTransformBoth,
   'ZYX图像扩展': ResizeImageOffset,
+  'ZYX调整通过点的位置调整图像': ChangeRectangle,
 }
 
 __all__ = ['NODE_CLASS_MAPPINGS']

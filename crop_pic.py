@@ -171,7 +171,7 @@ class TrapezoidalTransform(object):
     FUNCTION = "trapezoidal_transform"
 
     # 将图像转换为梯形
-    def trapezoidal_transform(self, image, bottom_half_height_ratio=0.5, top_width_ratio=0.6, isRGB=1):
+    def trapezoidal_transform(self, image, bottom_half_height_ratio=0.5, top_width_ratio=0.6, isRGB=0):
         # 将图像转换为 RGBA 格式
         pil_img = tensor2pil(image)[0].convert("RGBA")
         img = pil_to_cv2(pil_img)
@@ -234,15 +234,23 @@ class TrapezoidalTransform(object):
             transparent_background[:top_height, :] = top_half_rgba
 
         # Set the areas not covered by the image to transparent
-        transparent_background[:, :, 3] = np.where(transparent_background[:, :, :3].sum(axis=2) > 0, 255, 0)
+        # transparent_background[:, :, 3] = np.where(transparent_background[:, :, :3].sum(axis=2) > 0, 255, 0)
 
         # Check if output image is valid
         if transparent_background is None or transparent_background.size == 0 or np.count_nonzero(transparent_background) == 0:
             print("Error: The transformed image is empty or not valid.")
             return
 
+        res_pil_img = cv2_to_pil(transparent_background)
+
+        if isRGB == 0:
+            new_img = res_pil_img.convert("RGBA")
+
+        if isRGB == 1:
+            new_img = res_pil_img.convert("RGB")
+
         # Save the processed image
-        return (pil2tensor(cv2_to_pil(transparent_background)), )
+        return (pil2tensor(new_img), )
 
 # 上半部分往右偏移节点
 class SkewImageTopRight(object):
@@ -1357,6 +1365,82 @@ class SplitCompressTransform(object):
         # 保存处理后的图像
         return (pil2tensor(new_img), )
 
+# 图像分成两部分，上下两部分都进行高度压缩
+class SplitCompressTransformBoth(object):
+    def __init__(self) -> None:
+        pass
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "split_ratio": ("FLOAT", {
+                    "default": 0.5,
+                    "min": 0,
+                    "max": 1,
+                    "step": 0.01,
+                    "display": 'float'
+                }),
+                "top_compress_ratio": ("FLOAT", {
+                    "default": 0.5,
+                    "min": 0,
+                    "max": 1,
+                    "step": 0.01,
+                    "display": 'float'
+                }),
+                "bottom_compress_ratio": ("FLOAT", {
+                    "default": 0.5,
+                    "min": 0,
+                    "max": 1,
+                    "step": 0.01,
+                    "display": 'float'
+                }),
+                "isRGB": ("INT", {
+                    "default": 1,
+                    "min": 0,
+                    "max": 1,
+                    "step": 1,
+                    "display": 'number'
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE", )
+    CATEGORY = "img_process"
+    FUNCTION = "split_and_compress_image"
+
+    # split_and_compress_image
+    def split_and_compress_image(self, image, split_ratio=0.5, top_compress_ratio=0.5, bottom_compress_ratio=0.5, isRGB=1):
+        # 加载图像
+        img = tensor2pil(image)[0].convert("RGBA")
+        # 加载图像
+        # 计算分割点
+        split_point = int(img.height * split_ratio)
+
+        # 分割图像
+        top_half = img.crop((0, 0, img.width, split_point))
+        bottom_half = img.crop((0, split_point, img.width, img.height))
+
+        # 压缩上面一部分
+        top_half = top_half.resize((top_half.width, int(top_half.height * top_compress_ratio)), 4)
+        
+        # 压缩下面一部分
+        bottom_half = bottom_half.resize((bottom_half.width, int(bottom_half.height * bottom_compress_ratio)), 4)
+
+        # 合并图像时图像大小也要改变
+        new_height = top_half.height + bottom_half.height
+        new_img = Image.new("RGBA", (img.width, new_height))
+
+        new_img.paste(top_half, (0, 0))
+        new_img.paste(bottom_half, (0, top_half.height))
+
+        if isRGB == 1:
+            return (pil2tensor(new_img.convert("RGB")), )
+
+        # 保存处理后的图像
+        return (pil2tensor(new_img), )
+
 # 图像分成两部分，上面一部分进行高度压缩，下面一部分不变，去锯齿
 class SplitCompressTransformNo(object):
     def __init__(self) -> None:
@@ -1490,3 +1574,188 @@ class ResizeImageOffset:
         new_img.paste(img, (max(0, offset_x), max(0, offset_y)))  # Ensure positive offsets
 
         return (pil2tensor(new_img),)
+
+# 调整通过点的位置调整图像
+class ChangeRectangle:
+    def __init__(self):
+        pass
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "width": ("INT", {
+                    "default": 512,
+                    "min": 0,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "height": ("INT", {
+                    "default": 512,
+                    "min": 0,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "ori_x_1": ("INT", {
+                    "default": 0,
+                    "min": -100000,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "ori_y_1": ("INT", {
+                    "default": 0,
+                    "min": -100000,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "ori_x_2": ("INT", {
+                    "default": 0,
+                    "min": -100000,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "ori_y_2": ("INT", {
+                    "default": 0,
+                    "min": -100000,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "ori_x_3": ("INT", {
+                    "default": 0,
+                    "min": -100000,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "ori_y_3": ("INT", {
+                    "default": 0,
+                    "min": -100000,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "ori_x_4": ("INT", {
+                    "default": 0,
+                    "min": -100000,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "ori_y_4": ("INT", {
+                    "default": 0,
+                    "min": -100000,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "des_x_1": ("INT", {
+                    "default": 0,
+                    "min": -100000,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "des_y_1": ("INT", {
+                    "default": 0,
+                    "min": -100000,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "des_x_2": ("INT", {
+                    "default": 0,
+                    "min": -100000,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "des_y_2": ("INT", {
+                    "default": 0,
+                    "min": -100000,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "des_x_3": ("INT", {
+                    "default": 0,
+                    "min": -100000,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "des_y_3": ("INT", {
+                    "default": 0,
+                    "min": -100000,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "des_x_4": ("INT", {
+                    "default": 0,
+                    "min": -100000,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "des_y_4": ("INT", {
+                    "default": 0,
+                    "min": -100000,
+                    "max": 100000,
+                    "step": 1,
+                    "display": 'number'
+                }),
+                "isRGB": ("INT", {
+                    "default": 1,
+                    "min": 0,
+                    "max": 1,
+                    "step": 1,
+                    "display": 'number'
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE",)
+    RETURN_NAMES = ("image",)
+    FUNCTION = "change_rectangle"
+
+    CATEGORY = "img_process"
+
+    def change_rectangle(self, image, width, height, ori_x_1, ori_y_1, ori_x_2, ori_y_2, ori_x_3, ori_y_3, ori_x_4, ori_y_4,
+    des_x_1, des_y_1, des_x_2, des_y_2, des_x_3, des_y_3, des_x_4, des_y_4, isRGB=1):
+        # 将图像转换为 RGBA 格式
+        pil_img = tensor2pil(image)[0].convert("RGBA")
+        img = pil_to_cv2(pil_img)
+
+        # 定义原始坐标和目标坐标
+        original_points = np.float32([[ori_x_1, ori_y_1], [ori_x_2, ori_y_2], [ori_x_3, ori_y_3], [ori_x_4, ori_y_4]])  # 原始图像的四个角
+        transformed_points = np.float32([[des_x_1, des_y_1], [des_x_2, des_y_2], [des_x_3, des_y_3], [des_x_4, des_y_4]])  # 变换后的四个角
+        
+        # 指定目标图像的大小
+        output_size = (width, height)  # (宽, 高)
+
+        # 计算透视变换矩阵
+        matrix = cv2.getPerspectiveTransform(original_points, transformed_points)
+
+        # 应用透视变换
+        transformed_image = cv2.warpPerspective(img, matrix, output_size)
+
+        res_pil_img = cv2_to_pil(transformed_image)
+
+        if isRGB == 0:
+            new_img = res_pil_img.convert("RGBA")
+
+        if isRGB == 1:
+            new_img = res_pil_img.convert("RGB")
+
+        # Save the processed image
+        return (pil2tensor(new_img), )
+
+        # Save the processed image
+        return (pil2tensor(cv2_to_pil(transformed_image)), )
